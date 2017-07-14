@@ -7,8 +7,8 @@
 
 #include <memory>
 #include "util/testharness.h"
-#include "utilities/merge_operators/cassandra/format.h"
-#include "utilities/merge_operators/cassandra/test_utils.h"
+#include "utilities/cassandra/format.h"
+#include "utilities/cassandra/test_utils.h"
 
 namespace rocksdb {
 namespace cassandra {

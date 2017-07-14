@@ -82,8 +82,8 @@ public:
   virtual int8_t Index() const;
   virtual std::size_t Size() const;
   virtual void Serialize(std::string* dest) const;
-
-  static std::unique_ptr<ColumnBase> Deserialize(const char* src,
+  virtual bool Collectable() const = 0;
+  static std::shared_ptr<ColumnBase> Deserialize(const char* src,
                                                  std::size_t offset);
 
 private:
@@ -99,8 +99,9 @@ public:
   virtual int64_t Timestamp() const override;
   virtual std::size_t Size() const override;
   virtual void Serialize(std::string* dest) const override;
+  virtual bool Collectable() const override;
 
-  static std::unique_ptr<Column> Deserialize(const char* src,
+  static std::shared_ptr<Column> Deserialize(const char* src,
                                              std::size_t offset);
 
 private:
@@ -116,8 +117,9 @@ public:
 
   virtual std::size_t Size() const override;
   virtual void Serialize(std::string* dest) const override;
+  virtual bool Collectable() const override;
 
-  static std::unique_ptr<ExpiringColumn> Deserialize(const char* src,
+  static std::shared_ptr<ExpiringColumn> Deserialize(const char* src,
                                                      std::size_t offset);
 
 private:
@@ -132,8 +134,9 @@ public:
   virtual int64_t Timestamp() const override;
   virtual std::size_t Size() const override;
   virtual void Serialize(std::string* dest) const override;
-
-  static std::unique_ptr<Tombstone> Deserialize(const char* src,
+  virtual bool Collectable() const override;
+  
+  static std::shared_ptr<Tombstone> Deserialize(const char* src,
                                                 std::size_t offset);
 
 private:
@@ -141,12 +144,14 @@ private:
   int64_t marked_for_delete_at_;
 };
 
+typedef std::vector<std::shared_ptr<ColumnBase>> Columns;
+
 class RowValue {
 public:
   // Create a Row Tombstone.
   RowValue(int32_t local_deletion_time, int64_t marked_for_delete_at);
   // Create a Row containing columns.
-  RowValue(std::vector<std::unique_ptr<ColumnBase>> columns,
+  RowValue(Columns columns,
            int64_t last_modified_time);
   RowValue(const RowValue& that) = delete;
   RowValue(RowValue&& that) noexcept = default;
@@ -159,6 +164,8 @@ public:
   // otherwise it returns the max timestamp of containing columns.
   int64_t LastModifiedTime() const;
   void Serialize(std::string* dest) const;
+  RowValue GC(bool* changed) const;
+  bool Empty() const;
 
   static RowValue Deserialize(const char* src, std::size_t size);
   // Merge multiple rows according to their timestamp.
@@ -167,12 +174,14 @@ public:
 private:
   int32_t local_deletion_time_;
   int64_t marked_for_delete_at_;
-  std::vector<std::unique_ptr<ColumnBase>> columns_;
+  Columns columns_;
   int64_t last_modified_time_;
 
   FRIEND_TEST(RowValueMergeTest, Merge);
   FRIEND_TEST(RowValueMergeTest, MergeWithRowTombstone);
-  FRIEND_TEST(CassandraMergeTest, SimpleTest);
+  FRIEND_TEST(CassandraFunctionalTest, SimpleMergeTest);
+  FRIEND_TEST(CassandraFunctionalTest, CompactionShouldRemoveExpiredColumnsTest);
+  FRIEND_TEST(CassandraFunctionalTest, CompactionShouldRemoveRowWhenAllColumnExpiredTest);
 };
 
 } // namepsace cassandrda

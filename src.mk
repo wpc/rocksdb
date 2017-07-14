@@ -159,6 +159,9 @@ LIB_SOURCES =                                                   \
   utilities/blob_db/blob_log_reader.cc                          \
   utilities/blob_db/blob_log_writer.cc                          \
   utilities/blob_db/blob_log_format.cc                          \
+  utilities/cassandra/cassandra_compaction_filter.cc            \
+  utilities/cassandra/format.cc                                 \
+  utilities/cassandra/merge_operator.cc                         \
   utilities/checkpoint/checkpoint_impl.cc                       \
   utilities/compaction_filters/remove_emptyvalue_compactionfilter.cc    \
   utilities/convenience/info_log_finder.cc                      \
@@ -173,8 +176,6 @@ LIB_SOURCES =                                                   \
   utilities/leveldb_options/leveldb_options.cc                  \
   utilities/lua/rocks_lua_compaction_filter.cc                  \
   utilities/memory/memory_util.cc                               \
-  utilities/merge_operators/cassandra/format.cc                 \
-  utilities/merge_operators/cassandra/merge_operator.cc         \
   utilities/merge_operators/max.cc                              \
   utilities/merge_operators/put.cc                              \
   utilities/merge_operators/string_append/stringappend.cc       \
@@ -329,6 +330,11 @@ MAIN_SOURCES =                                                    \
   util/thread_local_test.cc                                             \
   utilities/backupable/backupable_db_test.cc                            \
   utilities/blob_db/blob_db_test.cc                                     \
+  utilities/cassandra/cassandra_format_test.cc                          \
+  utilities/cassandra/cassandra_functional_test.cc                      \
+  utilities/cassandra/cassandra_row_merge_test.cc                       \
+  utilities/cassandra/cassandra_serialize_test.cc                       \
+  utilities/cassandra/test_utils.cc                                     \
   utilities/checkpoint/checkpoint_test.cc                               \
   utilities/column_aware_encoding_exp.cc                                \
   utilities/column_aware_encoding_test.cc                               \
@@ -339,10 +345,6 @@ MAIN_SOURCES =                                                    \
   utilities/lua/rocks_lua_test.cc                                       \
   utilities/memory/memory_test.cc                                       \
   utilities/merge_operators/string_append/stringappend_test.cc          \
-  utilities/merge_operators/cassandra/cassandra_merge_test.cc           \
-  utilities/merge_operators/cassandra/cassandra_format_test.cc          \
-  utilities/merge_operators/cassandra/cassandra_row_merge_test.cc       \
-  utilities/merge_operators/cassandra/cassandra_serialize_test.cc       \
   utilities/object_registry_test.cc                                     \
   utilities/option_change_migration/option_change_migration_test.cc     \
   utilities/options/options_util_test.cc                                \
@@ -379,6 +381,7 @@ JNI_NATIVE_SOURCES =                                          \
   java/rocksjni/options.cc                                    \
   java/rocksjni/ratelimiterjni.cc                             \
   java/rocksjni/remove_emptyvalue_compactionfilterjni.cc      \
+  java/rocksjni/cassandra_compactionfilterjni.cc              \
   java/rocksjni/restorejni.cc                                 \
   java/rocksjni/rocksjni.cc                                   \
   java/rocksjni/rocksdb_exception_test.cc                     \

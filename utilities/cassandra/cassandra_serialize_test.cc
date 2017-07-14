@@ -6,7 +6,7 @@
 // COPYING file in the root directory of this source tree.
 
 #include "util/testharness.h"
-#include "utilities/merge_operators/cassandra/serialize.h"
+#include "utilities/cassandra/serialize.h"
 
 using namespace rocksdb::cassandra;
 

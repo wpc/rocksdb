@@ -8,8 +8,8 @@
 #include <cstring>
 #include <memory>
 #include "util/testharness.h"
-#include "utilities/merge_operators/cassandra/format.h"
-#include "utilities/merge_operators/cassandra/serialize.h"
+#include "utilities/cassandra/format.h"
+#include "utilities/cassandra/serialize.h"
 
 using namespace rocksdb::cassandra;
 

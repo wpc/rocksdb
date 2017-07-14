@@ -17,24 +17,24 @@ const int8_t kColumn = 0;
 const int8_t kTombstone = 1;
 const int8_t kExpiringColumn = 2;
 
-std::unique_ptr<ColumnBase> CreateTestColumn(int8_t mask,
+std::shared_ptr<ColumnBase> CreateTestColumn(int8_t mask,
                                              int8_t index,
                                              int64_t timestamp) {
   if ((mask & ColumnTypeMask::DELETION_MASK) != 0) {
-    return std::unique_ptr<Tombstone>(new Tombstone(
+    return std::shared_ptr<Tombstone>(new Tombstone(
       mask, index, kLocalDeletionTime, timestamp));
   } else if ((mask & ColumnTypeMask::EXPIRATION_MASK) != 0) {
-    return std::unique_ptr<ExpiringColumn>(new ExpiringColumn(
+    return std::shared_ptr<ExpiringColumn>(new ExpiringColumn(
       mask, index, timestamp, sizeof(kExpiringData), kExpiringData, kTtl));
   } else {
-    return std::unique_ptr<Column>(
+    return std::shared_ptr<Column>(
       new Column(mask, index, timestamp, sizeof(kData), kData));
   }
 }
 
 RowValue CreateTestRowValue(
     std::vector<std::tuple<int8_t, int8_t, int64_t>> column_specs) {
-  std::vector<std::unique_ptr<ColumnBase>> columns;
+  std::vector<std::shared_ptr<ColumnBase>> columns;
   int64_t last_modified_time = 0;
   for (auto spec: column_specs) {
     auto c = CreateTestColumn(std::get<0>(spec), std::get<1>(spec),
@@ -50,7 +50,7 @@ RowValue CreateRowTombstone(int64_t timestamp) {
 }
 
 void VerifyRowValueColumns(
-  std::vector<std::unique_ptr<ColumnBase>> &columns,
+  std::vector<std::shared_ptr<ColumnBase>> &columns,
   std::size_t index_of_vector,
   int8_t expected_mask,
   int8_t expected_index,

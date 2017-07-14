@@ -6,15 +6,16 @@
 // COPYING file in the root directory of this source tree.
 
 #include <iostream>
-
 #include "rocksdb/db.h"
+#include "db/db_impl.h"
 #include "rocksdb/merge_operator.h"
 #include "rocksdb/utilities/db_ttl.h"
 #include "util/testharness.h"
 #include "util/random.h"
 #include "utilities/merge_operators.h"
-#include "utilities/merge_operators/cassandra/merge_operator.h"
-#include "utilities/merge_operators/cassandra/test_utils.h"
+#include "utilities/cassandra/cassandra_compaction_filter.h"
+#include "utilities/cassandra/merge_operator.h"
+#include "utilities/cassandra/test_utils.h"
 
 using namespace rocksdb;
 
@@ -22,7 +23,7 @@ namespace rocksdb {
 namespace cassandra {
 
 // Path to the database on file system
-const std::string kDbName = test::TmpDir() + "/cassandramerge_test";
+const std::string kDbName = test::TmpDir() + "/cassandra_functional_test";
 
 class CassandraStore {
  public:
@@ -47,6 +48,15 @@ class CassandraStore {
     }
   }
 
+  void Flush() {
+    dbfull()->TEST_FlushMemTable();
+    dbfull()->TEST_WaitForCompact();
+  }
+
+  void Compact() {
+    dbfull()->TEST_CompactRange(0, nullptr, nullptr, db_->DefaultColumnFamily());
+  }
+  
   std::tuple<bool, RowValue> Get(const std::string& key){
     std::string result;
     auto s = db_->Get(get_option_, key, &result);
@@ -68,13 +78,27 @@ class CassandraStore {
   std::shared_ptr<DB> db_;
   WriteOptions merge_option_;
   ReadOptions get_option_;
+
+  DBImpl* dbfull() { return reinterpret_cast<DBImpl*>(db_.get()); }
+
+};
+
+class CassandraCompactionFilterFactory : public CompactionFilterFactory {
+ public:
+  explicit CassandraCompactionFilterFactory() {}
+
+  virtual std::unique_ptr<CompactionFilter> CreateCompactionFilter(
+      const CompactionFilter::Context& context) override {
+    return std::unique_ptr<CompactionFilter>(new CassandraCompactionFilter());
+  }
+  virtual const char* Name() const override { return "CassandraCompactionFilterFactory"; }
 };
 
 
 // The class for unit-testing
-class CassandraMergeTest : public testing::Test {
+class CassandraFunctionalTest : public testing::Test {
  public:
-  CassandraMergeTest() {
+  CassandraFunctionalTest() {
     DestroyDB(kDbName, Options());    // Start each test with a fresh DB
   }
 
@@ -83,6 +107,7 @@ class CassandraMergeTest : public testing::Test {
     Options options;
     options.create_if_missing = true;
     options.merge_operator.reset(new CassandraValueMergeOperator());
+    options.compaction_filter_factory.reset(new CassandraCompactionFilterFactory());
     EXPECT_OK(DB::Open(options, kDbName, &db));
     return std::shared_ptr<DB>(db);
   }
@@ -90,7 +115,7 @@ class CassandraMergeTest : public testing::Test {
 
 // THE TEST CASES BEGIN HERE
 
-TEST_F(CassandraMergeTest, SimpleTest) {
+TEST_F(CassandraFunctionalTest, SimpleMergeTest) {
   auto db = OpenDb();
   CassandraStore store(db);
 
@@ -124,6 +149,56 @@ TEST_F(CassandraMergeTest, SimpleTest) {
   VerifyRowValueColumns(merged.columns_, 4, kTombstone, 11, 11);
 }
 
+TEST_F(CassandraFunctionalTest, CompactionShouldRemoveExpiredColumnsTest) {
+  auto db = OpenDb();
+  CassandraStore store(db);
+  int64_t now = time(NULL) * 1e6;
+  
+  store.Append("k1", CreateTestRowValue({
+        std::make_tuple(kExpiringColumn, 0, now - (3 * kTtl * 1e6)), //expired
+          std::make_tuple(kExpiringColumn, 1, now), // not expired
+          std::make_tuple(kTombstone, 3, now)
+  }));
+
+  store.Flush();
+  
+  store.Append("k1",CreateTestRowValue({
+        std::make_tuple(kExpiringColumn, 0, now - (2 * kTtl * 1e6)),
+          std::make_tuple(kColumn, 2, now)
+  }));
+
+  store.Flush();
+  store.Compact();
+
+  auto ret = store.Get("k1");
+  ASSERT_TRUE(std::get<0>(ret));
+  RowValue& merged = std::get<1>(ret);
+  EXPECT_EQ(merged.columns_.size(), 3);
+  VerifyRowValueColumns(merged.columns_, 0, kExpiringColumn, 1, now);
+  VerifyRowValueColumns(merged.columns_, 1, kColumn, 2, now);
+  VerifyRowValueColumns(merged.columns_, 2, kTombstone, 3, now);  
+}
+
+TEST_F(CassandraFunctionalTest, CompactionShouldRemoveRowWhenAllColumnExpiredTest) {
+  auto db = OpenDb();
+  CassandraStore store(db);
+  int64_t now = time(NULL) * 1e6;
+  
+  store.Append("k1", CreateTestRowValue({
+        std::make_tuple(kExpiringColumn, 0, now - (3 * kTtl * 1e6)),
+          std::make_tuple(kExpiringColumn, 1, now - (3 * kTtl * 1e6)),
+  }));
+
+  store.Flush();
+  
+  store.Append("k1",CreateTestRowValue({
+        std::make_tuple(kExpiringColumn, 0, now - (2 * kTtl * 1e6)),
+  }));
+
+  store.Flush();
+  store.Compact();
+  ASSERT_FALSE(std::get<0>(store.Get("k1")));
+}
 
 } // namespace cassandra
 } // namespace rocksdb
