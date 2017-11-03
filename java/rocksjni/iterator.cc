@@ -179,3 +179,45 @@ jbyteArray Java_org_rocksdb_RocksIterator_value0(
                           const_cast<jbyte*>(reinterpret_cast<const jbyte*>(value_slice.data())));
   return jkeyValue;
 }
+
+
+/*
+ * Class:     org_rocksdb_RocksIterator
+ * Method:    valueDirect0
+ * Signature: (JLjava/nio/ByteBuffer;II)I
+ */
+jint Java_org_rocksdb_RocksIterator_valueDirect0(
+  JNIEnv* env, jobject jobj, jlong handle,
+  jobject jtarget, jint jtarget_off, jint jtarget_len) {
+
+  auto* it = reinterpret_cast<rocksdb::Iterator*>(handle);
+  rocksdb::Slice value_slice = it->value();
+  jint value_size = static_cast<jint>(value_slice.size());
+
+  if (jtarget_len < value_size) {
+    rocksdb::RocksDBExceptionJni::ThrowNew(env, "Direct byte buffer do not have enough remaining size");
+  }
+
+  char* target = reinterpret_cast<char*>(env->GetDirectBufferAddress(jtarget));
+  if (target == nullptr) {
+    rocksdb::RocksDBExceptionJni::ThrowNew(env, "Invalid direct byte buffer");
+    return 0;
+  }
+
+  target += jtarget_off;
+  memcpy(target, value_slice.data(), value_size);
+  return value_size;
+ }
+
+
+/*
+ * Class:     org_rocksdb_RocksIterator
+ * Method:    valueSize0
+ * Signature: (J)I
+ */
+JNIEXPORT jint JNICALL Java_org_rocksdb_RocksIterator_valueSize0(
+  JNIEnv *env, jobject jobj, jlong handle) {
+  auto* it = reinterpret_cast<rocksdb::Iterator*>(handle);
+  rocksdb::Slice value_slice = it->value();
+  return static_cast<jint>(value_slice.size());
+}

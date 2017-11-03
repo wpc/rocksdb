@@ -5,6 +5,8 @@
 
 package org.rocksdb;
 
+import java.nio.ByteBuffer;
+
 /**
  * <p>An iterator that yields a sequence of key/value pairs from a source.
  * Multiple implementations are provided by this library.
@@ -50,6 +52,37 @@ public class RocksIterator extends AbstractRocksIterator<RocksDB> {
     return value0(nativeHandle_);
   }
 
+  /**
+    * <p>Copy value into passined direct byte buffer. RocksDBException
+    * will be thrown if value is invalid or do not enough remaining
+    * size </p>
+    *
+    * <p>REQUIRES: !AtEnd() &amp;&amp; !AtStart()</p>
+    *
+    * @param buffer the out-value to receive the retrieved value.
+    *     It is using position and limit. Limit is set according to value size.
+    *     Supports direct buffer only.
+    */
+  public void value(ByteBuffer buffer) {
+    assert(isOwningHandle() && buffer.isDirect());
+    int valueSize = valueDirect0(nativeHandle_, buffer, buffer.position(), buffer.remaining());
+    buffer.limit(buffer.position() + valueSize);
+  }
+
+  /**
+    * <p>Size of current value in bytes</p>
+    *
+    * <p>REQUIRES: !AtEnd() &amp;&amp; !AtStart()</p>
+    *
+    * @return size of current entry value.
+    */
+
+  public int valueSize() {
+    assert(isOwningHandle());
+    return valueSize0(nativeHandle_);
+  }
+
+
   @Override protected final native void disposeInternal(final long handle);
   @Override final native boolean isValid0(long handle);
   @Override final native void seekToFirst0(long handle);
@@ -62,4 +95,6 @@ public class RocksIterator extends AbstractRocksIterator<RocksDB> {
 
   private native byte[] key0(long handle);
   private native byte[] value0(long handle);
+  private native int valueDirect0(long handle, ByteBuffer buffer, int bufferOffset, int bufferLen);
+  private native int valueSize0(long handle);
 }
