@@ -21,6 +21,12 @@ class CassandraPartitionMetaDataTest : public testing::Test {
  protected:
   void SetUp() override {
     DestroyDB(kDbName, Options());  // Start each test with a fresh DB
+    StartDB();
+  }
+
+  void TearDown() override { StopDB(); }
+
+  void StartDB() {
     Options options;
     options.create_if_missing = true;
     options.create_missing_column_families = true;
@@ -41,7 +47,7 @@ class CassandraPartitionMetaDataTest : public testing::Test {
     meta_data_ = new PartitionMetaData(db_, meta_cf_handle_, kTokenLength);
   }
 
-  void TearDown() override {
+  void StopDB() {
     delete meta_data_;
     delete data_cf_handle_;
     delete meta_cf_handle_;
@@ -92,6 +98,17 @@ TEST_F(CassandraPartitionMetaDataTest,
   EXPECT_EQ(pd2->PartitionKey(), "q0");
 
   EXPECT_EQ(meta_data_->GetPartitionDelete("t0-q"), nullptr);
+}
+
+TEST_F(CassandraPartitionMetaDataTest, ShouldPersistMetaDataCrossDBRestart) {
+  meta_data_->DeletePartition("t0-p0", 100, 101);
+  meta_data_->DeletePartition("t0-q0", 200, 201);
+  StopDB();
+  StartDB();
+  EXPECT_EQ(meta_data_->GetPartitionDelete("t0-p0-c0-")->LocalDeletionTime(),
+            TimePointFromSeconds(100));
+  EXPECT_EQ(meta_data_->GetPartitionDelete("t0-q0-c0-")->LocalDeletionTime(),
+            TimePointFromSeconds(200));
 }
 
 }  // namespace cassandra
